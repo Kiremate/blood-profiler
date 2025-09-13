@@ -1,52 +1,31 @@
 cmake_minimum_required(VERSION 3.20)
 project(blood-profiler VERSION 1.0.0 LANGUAGES CXX)
 
-# Set C++17 standard
+# Language/compile settings
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-# Enable position independent code
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Find required packages
-find_package(Boost REQUIRED COMPONENTS system)
-find_package(OpenSSL REQUIRED)
-
-# Add third-party libraries directory
-add_subdirectory(third_party)
-
-# Add source directory
-add_subdirectory(src)
-
-# Create the agent executable
-add_executable(agent
-    src/main.cpp
-    src/agent.cpp
-    src/probes/tcp_probe.cpp
-    src/probes/https_probe.cpp
-    src/probes/udp_probe.cpp
-    src/utils/json_reporter.cpp
-)
-
-target_include_directories(agent PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/CLI11/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann_json/include
-)
-
-target_link_libraries(agent PRIVATE
-    Boost::system
-    OpenSSL::SSL
-    OpenSSL::Crypto
-)
-
-# Compiler specific settings
-if(MSVC)
-    target_compile_options(agent PRIVATE /W4)
-else()
-    target_compile_options(agent PRIVATE -Wall -Wextra -Wpedantic)
+# Prefer Boost CONFIG packages (vcpkg). Fall back to legacy FindBoost on platforms without them.
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+find_package(Boost 1.71 QUIET CONFIG COMPONENTS asio system)
+if(NOT Boost_FOUND)
+  message(STATUS "Boost CONFIG not found; falling back to legacy FindBoost (module).")
+  cmake_policy(PUSH)
+  if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 OLD) # allow module lookup
+  endif()
+  find_package(Boost REQUIRED COMPONENTS system) # headers will be in Boost_INCLUDE_DIRS
+  cmake_policy(POP)
 endif()
 
-# Install targets
-install(TARGETS agent DESTINATION bin)
+find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
+
+# Hand control to subdirs; they will declare targets and link to these deps.
+add_subdirectory(third_party)
+add_subdirectory(src)
