@@ -1,0 +1,76 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          libboost-system-dev \
+          libssl-dev \
+          pkg-config
+          
+    - name: Configure CMake
+      run: cmake --preset linux-default
+      
+    - name: Build
+      run: cmake --build --preset linux-default
+      
+    - name: Test run
+      run: |
+        cd build/linux-default
+        ./agent --help
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-ubuntu
+        path: build/linux-default/agent
+
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Install vcpkg dependencies
+      run: |
+        vcpkg install boost-system:x64-windows
+        vcpkg install openssl:x64-windows
+        
+    - name: Configure CMake
+      run: |
+        cmake --preset windows-default -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+      
+    - name: Build
+      run: cmake --build --preset windows-default --config Release
+      
+    - name: Test run
+      run: |
+        cd build/windows-default/Release
+        ./agent.exe --help
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-windows
+        path: build/windows-default/Release/agent.exe
