@@ -7,20 +7,20 @@ Cross-platform egress/ingress profiler (TCP/UDP/HTTPS/DNS/ICMP) with OPSEC guard
 Blood Profiler is a C++17 cross-platform network connectivity testing tool designed for security professionals. It provides MVP probes for:
 
 - **TCP Connect**: Test connectivity to configurable ports
-- **HTTPS GET**: HTTP over SSL with SNI/Host override support  
+- **HTTPS GET**: HTTP over SSL with SNI/Host override support
 - **UDP Echo**: DNS queries to port 53 for UDP connectivity testing
 
 All probes include configurable timeouts and generate detailed JSON reports with timing information, success/failure status, and error details.
 
 ## Features
 
-✅ **Cross-platform**: Builds on Ubuntu, Windows, and other platforms  
-✅ **Modern C++17**: Clean, maintainable codebase  
-✅ **Async I/O**: Uses Boost.Asio for efficient network operations  
-✅ **SSL/TLS Support**: OpenSSL integration for HTTPS probes  
-✅ **JSON Output**: Structured reporting with timestamps and metrics  
-✅ **CLI Interface**: Easy-to-use command-line interface  
-✅ **CI/CD Ready**: GitHub Actions for automated builds  
+✅ **Cross-platform**: Builds on Ubuntu, Windows, and other platforms
+✅ **Modern C++17**: Clean, maintainable codebase
+✅ **Async I/O**: Uses Boost.Asio for efficient network operations
+✅ **SSL/TLS Support**: OpenSSL integration for HTTPS probes
+✅ **JSON Output**: Structured reporting with timestamps and metrics
+✅ **CLI Interface**: Easy-to-use command-line interface
+✅ **CI/CD Ready**: GitHub Actions for automated builds
 
 ## Quick Start
 
@@ -47,7 +47,7 @@ cmake --preset linux-default    # Linux
 cmake --preset windows-default  # Windows
 
 # Build
-cmake --build --preset linux-default    # Linux  
+cmake --build --preset linux-default    # Linux
 cmake --build --preset windows-default  # Windows
 ```
 
@@ -59,7 +59,7 @@ cmake --build --preset windows-default  # Windows
 ```
 Runs default probes:
 - TCP: ports 22, 80, 443, 8080, 8443 on localhost
-- HTTPS: google.com, github.com  
+- HTTPS: google.com, github.com
 - UDP: DNS queries to 8.8.8.8, 1.1.1.1
 
 #### Custom Probes
@@ -93,7 +93,7 @@ Results are saved as JSON with detailed timing and error information:
   "probes": [
     {
       "type": "TCP",
-      "target": "127.0.0.1", 
+      "target": "127.0.0.1",
       "port": 22,
       "success": true,
       "response_time_ms": 2
@@ -101,7 +101,7 @@ Results are saved as JSON with detailed timing and error information:
     {
       "type": "HTTPS",
       "target": "github.com",
-      "port": 443, 
+      "port": 443,
       "success": true,
       "response_time_ms": 166,
       "additional_info": "HTTP 200 OK"
@@ -124,7 +124,7 @@ Results are saved as JSON with detailed timing and error information:
 blood-profiler/
 ├── src/
 │   ├── main.cpp              # CLI entry point
-│   ├── agent.{hpp,cpp}       # Main agent orchestrator  
+│   ├── agent.{hpp,cpp}       # Main agent orchestrator
 │   ├── probes/               # Probe implementations
 │   │   ├── tcp_probe.{hpp,cpp}
 │   │   ├── https_probe.{hpp,cpp}
@@ -154,6 +154,41 @@ cmake --preset debug
 cmake --build --preset debug
 ```
 
+### Code Formatting (clang-format)
+
+To ensure consistent code style, use **clang-format** for C++ files. This project recommends the [Clang-Format](https://marketplace.visualstudio.com/items?itemName=xaver.clang-format) VS Code extension.
+
+#### Install clang-format
+
+- **Linux (Ubuntu/Debian):**
+  ```bash
+  sudo apt-get install clang-format
+  ```
+- **Windows:**
+  Install LLVM (includes clang-format) using [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/):
+  ```powershell
+  winget install -e --id LLVM.LLVM
+  ```
+  The executable will be at `C:\Program Files\LLVM\bin\clang-format.exe`.
+
+#### VS Code Setup
+
+1. Install the **Clang-Format** extension (`xaver.clang-format`).
+2. Set as your default formatter for C++ files.
+3. (Optional) Add to your `settings.json`:
+   ```json
+   {
+     "editor.formatOnSave": true,
+     "clang-format.executable": "C:\\Program Files\\LLVM\\bin\\clang-format.exe"
+   }
+   ```
+   Adjust the path for your OS if needed.
+
+#### Usage
+
+- Format a file: Right-click and select **Format Document** or use `Shift+Alt+F`.
+- Format on save: Enable `editor.formatOnSave` in settings.
+
 ### Adding New Probes
 1. Create new probe class inheriting from `ProbeBase`
 2. Implement `execute()` and `getType()` methods
@@ -172,7 +207,7 @@ cmake --build --preset debug
 ⚠️ **IMPORTANT**: This tool is designed for authorized security testing only. Users are responsible for:
 
 - Obtaining proper authorization before scanning
-- Complying with applicable laws and regulations  
+- Complying with applicable laws and regulations
 - Respecting rate limits and being considerate of target systems
 - Not using this tool for malicious purposes
 

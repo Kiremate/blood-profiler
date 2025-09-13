@@ -11,10 +11,10 @@ class HttpsProbe : public ProbeBase {
 public:
     HttpsProbe(const std::string& host, int port, int timeout_ms, const std::string& sni_override = "");
     ~HttpsProbe() override = default;
-    
+
     ProbeResult execute() override;
     std::string getType() const override { return "HTTPS"; }
-    
+
 private:
     std::string host_;
     int port_;
