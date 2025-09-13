@@ -16,12 +16,13 @@ jobs:
 
     - name: Install dependencies
       run: |
-        sudo apt-get update 
+        sudo apt-get update
         sudo apt-get install -y \
           build-essential \
           cmake \
           ninja-build \
           libboost-system-dev \
+          libboost-dev \
           libssl-dev \
           pkg-config
 
@@ -51,15 +52,17 @@ jobs:
 
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
-
-    - name: Install vcpkg dependencies
+    # ensure we use the runner’s vcpkg and triplet
+    - name: Install vcpkg dependencies (x64)
+      shell: pwsh
       run: |
-        vcpkg install boost-system:x64-windows
-        vcpkg install openssl:x64-windows
+          vcpkg install boost-headers:x64-windows boost-asio:x64-windows boost-system:x64-windows openssl:x64-windows
 
-    - name: Configure CMake
+    - name: Configure CMake (vcpkg toolchain)
+      shell: pwsh
       run: |
-        cmake --preset windows-default -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+        cmake --preset windows-default
+         -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
 
     - name: Build
       run: cmake --build --preset windows-default --config Release
@@ -67,7 +70,7 @@ jobs:
     - name: Test run
       run: |
         cd build/windows-default/Release
-        ./agent.exe --help
+        .\agent.exe --help
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
