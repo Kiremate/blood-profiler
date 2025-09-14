@@ -50,3 +50,12 @@ endif()
 
 # Install
 install(TARGETS agent DESTINATION bin)
+
+# Tests (header-only simple tests via a small executable)
+enable_testing()
+add_executable(cli_helpers_tests
+	${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_helpers_tests.cpp
+)
+target_include_directories(cli_helpers_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(cli_helpers_tests PRIVATE nlohmann_json::nlohmann_json)
+add_test(NAME cli_helpers_tests COMMAND cli_helpers_tests)

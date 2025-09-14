@@ -75,6 +75,9 @@ Runs default probes:
 
 # Custom timeout (5 seconds default)
 ./agent --timeout 10000 --output custom_results.json
+
+# Output format (json|ndjson)
+./agent --format ndjson --https-hosts example.com
 ```
 
 #### Help
@@ -84,7 +87,9 @@ Runs default probes:
 
 ## Output Format
 
-Results are saved as JSON with detailed timing and error information:
+Results are printed to stdout as pretty JSON by default. Use `--output <file>` to also write a file.
+
+When `--format json` (default), a single JSON object is emitted with a `probes` array and metadata:
 
 ```json
 {
@@ -121,6 +126,14 @@ Results are saved as JSON with detailed timing and error information:
 ## Architecture
 
 ```
+
+When `--format ndjson`, each probe result is written as a single JSON object per line (no top-level metadata):
+
+```
+{"type":"TCP","target":"127.0.0.1","port":80,"success":true,"response_time_ms":2}
+{"type":"HTTPS","target":"github.com","port":443,"success":true,"response_time_ms":166,"additional_info":"HTTP 200 OK"}
+{"type":"UDP","target":"8.8.8.8","port":53,"success":false,"response_time_ms":5000,"error":"Operation timed out"}
+```
 blood-profiler/
 ├── src/
 │   ├── main.cpp              # CLI entry point
@@ -139,8 +152,8 @@ blood-profiler/
 
 - **Boost.Asio**: Async I/O and networking
 - **OpenSSL**: SSL/TLS support for HTTPS probes
-- **CLI11**: Command-line argument parsing (vendored)
-- **nlohmann/json**: JSON serialization (vendored)
+- **CLI11**: Command-line argument parsing (via package)
+- **nlohmann/json**: JSON serialization (via package)
 
 ## Development
 

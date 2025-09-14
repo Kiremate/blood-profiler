@@ -1,13 +1,16 @@
 #include "agent.hpp"
+#include "core/cli_helpers.hpp"
 #include "core/constants.hpp"
 #include "utils/log.hpp"
 #include <CLI/CLI.hpp>
 #include <cassert>
 #include <exception>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
+
 
 namespace {
 
@@ -26,31 +29,16 @@ void printConsentAndExit() {
 }
 
 bool validateListArgPairs(int argc, char **argv) {
-  for (int i = 1; i < argc; ++i) {
-    std::string arg = argv[i];
-    if ((arg == "--tcp-ports" || arg == "--https-hosts" ||
-         arg == "--udp-hosts") &&
-        (i + 1 >= argc || argv[i + 1][0] == '-')) {
-      std::cerr << "Error: " << arg
-                << " requires an argument (comma-separated list)\n";
-      return false;
-    }
+  if (!BloodProfiler::CLIHelpers::validateListArgPairs(argc, argv)) {
+    std::cerr << "Error: --tcp-ports/--https-hosts/--udp-hosts require an "
+                 "argument (comma-separated list)\n";
+    return false;
   }
   return true;
 }
 
-void addDefaultProbesIfEmpty(std::vector<int> &tcp_ports,
-                             std::vector<std::string> &https_hosts,
-                             std::vector<std::string> &udp_hosts) {
-  if (tcp_ports.empty() && https_hosts.empty() && udp_hosts.empty()) {
-    tcp_ports.assign(BloodProfiler::Constants::DEFAULT_TCP_PORTS.begin(),
-                     BloodProfiler::Constants::DEFAULT_TCP_PORTS.end());
-    https_hosts.assign(BloodProfiler::Constants::DEFAULT_HTTPS_HOSTS.begin(),
-                       BloodProfiler::Constants::DEFAULT_HTTPS_HOSTS.end());
-    udp_hosts.assign(BloodProfiler::Constants::DEFAULT_UDP_HOSTS.begin(),
-                     BloodProfiler::Constants::DEFAULT_UDP_HOSTS.end());
-  }
-}
+// Use helper from header
+using BloodProfiler::CLIHelpers::addDefaultProbesIfEmpty;
 
 void configureProbes(BloodProfiler::Agent &agent,
                      const std::vector<int> &tcp_ports,
@@ -81,6 +69,7 @@ int main(int argc, char **argv) {
   int timeout = BloodProfiler::Constants::DEFAULT_TIMEOUT_MS; // default
   std::string output_file;         // Only used when --output is provided
   bool compact_deprecated = false; // Deprecated flag for compatibility
+  std::string format = "json";     // json or ndjson
 
   // If user passes nothing we print consent message and exit non-zer0
   if (argc == 1) {
@@ -96,7 +85,6 @@ int main(int argc, char **argv) {
   }
   // HTTPS: verify certs by default; --insecure is explicit opt-in; allow
   // --ca-file/--ca-path.
-
   app.add_option("--tcp-ports", tcp_ports,
                  "TCP ports to probe (comma-separated)")
       ->delimiter(',');
@@ -108,6 +96,9 @@ int main(int argc, char **argv) {
       ->delimiter(',');
   app.add_option("--timeout", timeout,
                  "Timeout in milliseconds (default: 5000)");
+  app.add_option("--format", format,
+                 "Output format: json|ndjson (default: json)")
+      ->check(CLI::IsMember({"json", "ndjson"}, CLI::ignore_case));
   CLI::Option *out_opt =
       app.add_option("--output", output_file,
                      "Also write JSON to the specified file path (pretty). Use "
@@ -153,32 +144,81 @@ int main(int argc, char **argv) {
     return 3;
   }
 
-  // Always print pretty JSON to stdout
-  try {
-    agent.saveResults(results, "-", /*pretty_print=*/true);
-  } catch (const std::exception &ex) {
-    error(std::string("Failed to serialize results to stdout: ") + ex.what());
-    return 4;
+  // Emit results based on format
+  if (format == "json" || format == "JSON" || format == "Json") {
+    try {
+      agent.saveResults(results, "-", /*pretty_print=*/true);
+    } catch (const std::exception &ex) {
+      error(std::string("Failed to serialize results to stdout: ") + ex.what());
+      return 4;
+    }
+  } else {
+    // ndjson
+    try {
+      // Write to stdout
+      for (const auto &r : results) {
+        nlohmann::json j;
+        j["type"] = r.type;
+        j["target"] = r.target;
+        j["port"] = r.port;
+        j["success"] = r.success;
+        j["response_time_ms"] = r.response_time_ms;
+        if (!r.error_message.empty())
+          j["error"] = r.error_message;
+        if (!r.additional_info.empty())
+          j["additional_info"] = r.additional_info;
+        std::cout << j.dump(-1, ' ', false,
+                            nlohmann::json::error_handler_t::replace)
+                  << "\n";
+      }
+    } catch (const std::exception &ex) {
+      error(std::string("Failed to serialize NDJSON to stdout: ") + ex.what());
+      return 4;
+    }
   }
 
   // If user provided --output and it's not "-", also write that file (pretty)
   if (out_opt->count() > 0) {
     if (output_file != "-") {
       try {
-        agent.saveResults(results, output_file, /*pretty_print=*/true);
-        info(std::string("Probing completed. Printed pretty JSON to stdout and "
-                         "saved to ") +
-             output_file);
+        if (format == "json" || format == "JSON" || format == "Json") {
+          agent.saveResults(results, output_file, /*pretty_print=*/true);
+        } else {
+          std::ofstream ofs(output_file);
+          if (!ofs.is_open()) {
+            throw std::runtime_error("cannot open output file");
+          }
+          for (const auto &r : results) {
+            nlohmann::json j;
+            j["type"] = r.type;
+            j["target"] = r.target;
+            j["port"] = r.port;
+            j["success"] = r.success;
+            j["response_time_ms"] = r.response_time_ms;
+            if (!r.error_message.empty())
+              j["error"] = r.error_message;
+            if (!r.additional_info.empty())
+              j["additional_info"] = r.additional_info;
+            ofs << j.dump(-1, ' ', false,
+                          nlohmann::json::error_handler_t::replace)
+                << '\n';
+          }
+        }
+        info(std::string("Probing completed. Printed ") +
+             (format == "ndjson" ? "NDJSON" : "pretty JSON") +
+             " to stdout and saved to " + output_file);
       } catch (const std::exception &ex) {
         error(std::string("Failed to save results to file '") + output_file +
               "': " + ex.what());
         return 5;
       }
     } else {
-      info("Probing completed. Printed pretty JSON to stdout");
+      info(std::string("Probing completed. Printed ") +
+           (format == "ndjson" ? "NDJSON" : "pretty JSON") + " to stdout");
     }
   } else {
-    info("Probing completed. Printed pretty JSON to stdout");
+    info(std::string("Probing completed. Printed ") +
+         (format == "ndjson" ? "NDJSON" : "pretty JSON") + " to stdout");
   }
   return 0;
 }
