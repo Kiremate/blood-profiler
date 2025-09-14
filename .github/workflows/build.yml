@@ -92,10 +92,3 @@ jobs:
         with:
           name: agent-windows
           path: build/windows-default/src/Release/agent.exe
-
-      - name: Configure CMake (vcpkg toolchain)
-        shell: pwsh
-        run: >
-          cmake --preset windows-default
-          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
-          -DVCPKG_TARGET_TRIPLET=x64-windows

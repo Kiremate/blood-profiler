@@ -43,6 +43,16 @@
             }
         },
         {
+            "name": "windows-vcpkg",
+            "displayName": "Windows x64 with vcpkg toolchain",
+            "description": "Uses local wrapper toolchain that requires VCPKG_INSTALLATION_ROOT",
+            "inherits": ["windows-default"],
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/vcpkg-toolchain.cmake",
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
+            }
+        },
+        {
             "name": "linux-default",
             "displayName": "Linux Default",
             "description": "Default Linux build",
@@ -70,6 +80,10 @@
         {
             "name": "windows-default",
             "configurePreset": "windows-default"
+        },
+        {
+            "name": "windows-vcpkg",
+            "configurePreset": "windows-vcpkg"
         },
         {
             "name": "linux-default",
