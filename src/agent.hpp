@@ -36,7 +36,7 @@ public:
 
   std::vector<ProbeResult> runProbes();
   void saveResults(const std::vector<ProbeResult> &results,
-                   const std::string &filename);
+                   const std::string &filename, bool pretty_print = true);
 
 private:
   int timeout_ms_;

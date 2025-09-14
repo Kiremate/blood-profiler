@@ -51,9 +51,14 @@ std::vector<ProbeResult> Agent::runProbes() {
 }
 
 void Agent::saveResults(const std::vector<ProbeResult> &results,
-                        const std::string &filename) {
+                        const std::string &filename, bool pretty_print) {
   nlohmann::json json_results;
-  json_results["timestamp"] = static_cast<int>(std::time(nullptr));
+  const auto now = std::chrono::system_clock::now();
+  const auto ts =
+      std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch())
+          .count();
+
+  json_results["timestamp"] = static_cast<int>(ts);
   json_results["total_probes"] = static_cast<int>(results.size());
 
   nlohmann::json probes_array;
@@ -74,9 +79,15 @@ void Agent::saveResults(const std::vector<ProbeResult> &results,
   }
   json_results["probes"] = probes_array;
 
+  const int indent = pretty_print ? 2 : -1;
+  if (filename == "-") {
+    std::cout << json_results.dump(indent) << std::endl;
+    return;
+  }
+
   std::ofstream file(filename);
   if (file.is_open()) {
-    file << json_results.dump(2);
+    file << json_results.dump(indent) << std::endl;
     file.close();
   } else {
     std::cerr << "Failed to open output file: " << filename << std::endl;

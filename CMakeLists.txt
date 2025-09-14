@@ -25,7 +25,14 @@ endif()
 
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
+find_package(CLI11 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
-# Hand control to subdirs; they will declare targets and link to these deps.
-add_subdirectory(third_party)
+# Writable install prefix (avoid Program Files when building 'install')
+include(GNUInstallDirs)
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefix" FORCE)
+endif()
+
+# Hand control to subdir that declares targets and links deps
 add_subdirectory(src)

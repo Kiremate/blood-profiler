@@ -1,5 +1,5 @@
 #include "agent.hpp"
-#include <CLI/CLI11.hpp>
+#include <CLI/CLI.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -12,6 +12,7 @@ int main(int argc, char **argv) {
   std::vector<std::string> udp_hosts;
   int timeout = 5000; // 5 seconds default
   std::string output_file = "results.json";
+  bool compact = false;
 
   app.add_option("--tcp-ports", tcp_ports,
                  "TCP ports to probe (comma-separated)");
@@ -21,8 +22,10 @@ int main(int argc, char **argv) {
                  "UDP hosts for echo probe (comma-separated)");
   app.add_option("--timeout", timeout,
                  "Timeout in milliseconds (default: 5000)");
-  app.add_option("--output", output_file,
-                 "Output JSON file (default: results.json)");
+  app.add_option(
+      "--output", output_file,
+      "Output JSON file (default: results.json). Use '-' for stdout");
+  app.add_flag("--compact", compact, "Write compact JSON (one line)");
 
   try {
     app.parse(argc, argv);

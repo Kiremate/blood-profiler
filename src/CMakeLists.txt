@@ -14,11 +14,11 @@ target_include_directories(agent PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link third-party interface libs
 target_link_libraries(agent PRIVATE
-		CLI11
-		nlohmann_json
-		OpenSSL::SSL
-	OpenSSL::Crypto
-	Threads::Threads
+  OpenSSL::SSL
+  OpenSSL::Crypto
+  Threads::Threads
+  CLI11::CLI11
+  nlohmann_json::nlohmann_json
 )
 
 # Link Boost (both CONFIG and legacy module cases)
@@ -36,7 +36,7 @@ endif()
 
 # Windows socket libs
 if(WIN32)
-	target_link_libraries(agent PRIVATE ws2_32)
+	target_link_libraries(agent PRIVATE ws2_32 crypt32)
 endif()
 
 # Warnings
