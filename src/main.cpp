@@ -1,8 +1,76 @@
 #include "agent.hpp"
+#include "core/constants.hpp"
+#include "utils/log.hpp"
 #include <CLI/CLI.hpp>
+#include <cassert>
+#include <exception>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
+
+namespace {
+
+using BloodProfiler::Log::debug;
+using BloodProfiler::Log::error;
+using BloodProfiler::Log::info;
+using BloodProfiler::Log::warn;
+
+void printConsentAndExit() {
+  std::cout << "Blood Profiler v" << BloodProfiler::Constants::VERSION << "\n"
+            << "This tool performs network probes to assess egress and "
+               "ingress capabilities.\n"
+            << "By using this tool, you consent to sending network traffic to "
+               "the specified targets.\n"
+            << "If you do not consent, please exit now.\n";
+}
+
+bool validateListArgPairs(int argc, char **argv) {
+  for (int i = 1; i < argc; ++i) {
+    std::string arg = argv[i];
+    if ((arg == "--tcp-ports" || arg == "--https-hosts" ||
+         arg == "--udp-hosts") &&
+        (i + 1 >= argc || argv[i + 1][0] == '-')) {
+      std::cerr << "Error: " << arg
+                << " requires an argument (comma-separated list)\n";
+      return false;
+    }
+  }
+  return true;
+}
+
+void addDefaultProbesIfEmpty(std::vector<int> &tcp_ports,
+                             std::vector<std::string> &https_hosts,
+                             std::vector<std::string> &udp_hosts) {
+  if (tcp_ports.empty() && https_hosts.empty() && udp_hosts.empty()) {
+    tcp_ports.assign(BloodProfiler::Constants::DEFAULT_TCP_PORTS.begin(),
+                     BloodProfiler::Constants::DEFAULT_TCP_PORTS.end());
+    https_hosts.assign(BloodProfiler::Constants::DEFAULT_HTTPS_HOSTS.begin(),
+                       BloodProfiler::Constants::DEFAULT_HTTPS_HOSTS.end());
+    udp_hosts.assign(BloodProfiler::Constants::DEFAULT_UDP_HOSTS.begin(),
+                     BloodProfiler::Constants::DEFAULT_UDP_HOSTS.end());
+  }
+}
+
+void configureProbes(BloodProfiler::Agent &agent,
+                     const std::vector<int> &tcp_ports,
+                     const std::vector<std::string> &https_hosts,
+                     const std::vector<std::string> &udp_hosts) {
+  for (int port : tcp_ports) {
+    assert(port > 0 && port <= 65535);
+    agent.addTcpProbe("127.0.0.1", port);
+  }
+  for (const std::string &host : https_hosts) {
+    assert(!host.empty());
+    agent.addHttpsProbe(host, 443);
+  }
+  for (const std::string &host : udp_hosts) {
+    assert(!host.empty());
+    agent.addUdpProbe(host, 53);
+  }
+}
+
+} // namespace
 
 int main(int argc, char **argv) {
   CLI::App app{"Blood Profiler - Cross-platform egress/ingress profiler"};
@@ -10,9 +78,24 @@ int main(int argc, char **argv) {
   std::vector<int> tcp_ports;
   std::vector<std::string> https_hosts;
   std::vector<std::string> udp_hosts;
-  int timeout = 5000;              // 5 seconds default
+  int timeout = BloodProfiler::Constants::DEFAULT_TIMEOUT_MS; // default
   std::string output_file;         // Only used when --output is provided
   bool compact_deprecated = false; // Deprecated flag for compatibility
+
+  // If user passes nothing we print consent message and exit non-zer0
+  if (argc == 1) {
+    printConsentAndExit();
+    return 1;
+  }
+  // If user asks for TCP/UDP without destination (controller) clear error and
+  // exit
+  if (argc > 1) {
+    if (!validateListArgPairs(argc, argv)) {
+      return 1;
+    }
+  }
+  // HTTPS: verify certs by default; --insecure is explicit opt-in; allow
+  // --ca-file/--ca-path.
 
   app.add_option("--tcp-ports", tcp_ports,
                  "TCP ports to probe (comma-separated)")
@@ -45,45 +128,57 @@ int main(int argc, char **argv) {
   BloodProfiler::Agent agent(timeout);
 
   // Add default probes if none specified
-  if (tcp_ports.empty() && https_hosts.empty() && udp_hosts.empty()) {
-    tcp_ports = {22, 80, 443, 8080, 8443};
-    https_hosts = {"google.com", "github.com"};
-    udp_hosts = {"8.8.8.8", "1.1.1.1"};
-  }
+  addDefaultProbesIfEmpty(tcp_ports, https_hosts, udp_hosts);
 
   // Configure probes
-  for (int port : tcp_ports) {
-    agent.addTcpProbe("127.0.0.1", port);
-  }
-
-  for (const std::string &host : https_hosts) {
-    agent.addHttpsProbe(host, 443);
-  }
-
-  for (const std::string &host : udp_hosts) {
-    agent.addUdpProbe(host, 53);
+  try {
+    configureProbes(agent, tcp_ports, https_hosts, udp_hosts);
+  } catch (const std::exception &ex) {
+    error(std::string("Failed to configure probes: ") + ex.what());
+    return 2;
+  } catch (...) {
+    error("Failed to configure probes: unknown error");
+    return 2;
   }
 
   // Run all probes
-  auto results = agent.runProbes();
+  std::vector<BloodProfiler::ProbeResult> results;
+  try {
+    results = agent.runProbes();
+  } catch (const std::exception &ex) {
+    error(std::string("Failed while running probes: ") + ex.what());
+    return 3;
+  } catch (...) {
+    error("Failed while running probes: unknown error");
+    return 3;
+  }
 
   // Always print pretty JSON to stdout
-  agent.saveResults(results, "-", /*pretty_print=*/true);
+  try {
+    agent.saveResults(results, "-", /*pretty_print=*/true);
+  } catch (const std::exception &ex) {
+    error(std::string("Failed to serialize results to stdout: ") + ex.what());
+    return 4;
+  }
 
   // If user provided --output and it's not "-", also write that file (pretty)
   if (out_opt->count() > 0) {
     if (output_file != "-") {
-      agent.saveResults(results, output_file, /*pretty_print=*/true);
-      std::cerr
-          << "Probing completed. Printed pretty JSON to stdout and saved to "
-          << output_file << std::endl;
+      try {
+        agent.saveResults(results, output_file, /*pretty_print=*/true);
+        info(std::string("Probing completed. Printed pretty JSON to stdout and "
+                         "saved to ") +
+             output_file);
+      } catch (const std::exception &ex) {
+        error(std::string("Failed to save results to file '") + output_file +
+              "': " + ex.what());
+        return 5;
+      }
     } else {
-      std::cerr << "Probing completed. Printed pretty JSON to stdout"
-                << std::endl;
+      info("Probing completed. Printed pretty JSON to stdout");
     }
   } else {
-    std::cerr << "Probing completed. Printed pretty JSON to stdout"
-              << std::endl;
+    info("Probing completed. Printed pretty JSON to stdout");
   }
   return 0;
 }

@@ -130,9 +130,6 @@ blood-profiler/
 │   │   ├── https_probe.{hpp,cpp}
 │   │   └── udp_probe.{hpp,cpp}
 │   └── utils/                # Utilities
-├── third_party/              # Vendored dependencies
-│   ├── CLI11/                # Command line parsing
-│   └── nlohmann_json/        # JSON serialization
 ├── CMakeLists.txt            # Build configuration
 ├── CMakePresets.json         # Build presets
 └── .github/workflows/        # CI/CD
@@ -140,7 +137,7 @@ blood-profiler/
 
 ## Dependencies
 
-- **Boost.Asio**: Async I/O and networking  
+- **Boost.Asio**: Async I/O and networking
 - **OpenSSL**: SSL/TLS support for HTTPS probes
 - **CLI11**: Command-line argument parsing (vendored)
 - **nlohmann/json**: JSON serialization (vendored)
