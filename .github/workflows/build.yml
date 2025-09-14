@@ -2,10 +2,17 @@ name: Build and Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, development ]
   pull_request:
-    branches: [ main, develop ]
-
+    branches: [ main, development ]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you running this manually?"
+        required: false
+        default: "manual-run"
+  merge_group:
+    branches: [ main, development ]
 jobs:
   build-ubuntu:
     runs-on: ubuntu-latest
@@ -45,35 +52,50 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v2
-    # ensure we use the runner’s vcpkg and triplet
-    - name: Install vcpkg dependencies (x64)
-      shell: pwsh
-      run: |
-          vcpkg install boost-headers:x64-windows boost-asio:x64-windows boost-system:x64-windows openssl:x64-windows
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
 
-    - name: Configure CMake (vcpkg toolchain)
-      shell: pwsh
-      run: |
-        cmake --preset windows-default
-         -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
+      - name: Bootstrap vcpkg (sets VCPKG_INSTALLATION_ROOT)
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$env:RUNNER_TEMP\vcpkg"
+          & "$env:RUNNER_TEMP\vcpkg\bootstrap-vcpkg.bat"
+          "VCPKG_INSTALLATION_ROOT=$env:RUNNER_TEMP\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-    - name: Build
-      run: cmake --build --preset windows-default --config Release
+      - name: Install vcpkg dependencies (x64)
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install boost-headers:x64-windows boost-asio:x64-windows boost-system:x64-windows openssl:x64-windows
 
-    - name: Test run
-      run: |
-        cd build/windows-default/Release
-        .\agent.exe --help
+      - name: Configure CMake (vcpkg toolchain)
+        shell: pwsh
+        run: >
+          cmake --preset windows-default
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Build
+        shell: pwsh
+        run: cmake --build --preset windows-default --config Release
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: agent-windows
-        path: build/windows-default/Release/agent.exe
+      - name: Test run
+        shell: pwsh
+        run: |
+          cd build/windows-default/src/Release
+          .\agent.exe --help
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-windows
+          path: build/windows-default/src/Release/agent.exe
+
+      - name: Configure CMake (vcpkg toolchain)
+        shell: pwsh
+        run: >
+          cmake --preset windows-default
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
