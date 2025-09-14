@@ -36,6 +36,8 @@ endif()
 
 # Windows socket libs
 if(WIN32)
+	# Target Windows 10 APIs (0x0A00) to avoid _WIN32_WINNT warnings from Asio
+	target_compile_definitions(agent PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
 	target_link_libraries(agent PRIVATE ws2_32 crypt32)
 endif()
 

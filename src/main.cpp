@@ -10,22 +10,30 @@ int main(int argc, char **argv) {
   std::vector<int> tcp_ports;
   std::vector<std::string> https_hosts;
   std::vector<std::string> udp_hosts;
-  int timeout = 5000; // 5 seconds default
-  std::string output_file = "results.json";
-  bool compact = false;
+  int timeout = 5000;              // 5 seconds default
+  std::string output_file;         // Only used when --output is provided
+  bool compact_deprecated = false; // Deprecated flag for compatibility
 
   app.add_option("--tcp-ports", tcp_ports,
-                 "TCP ports to probe (comma-separated)");
+                 "TCP ports to probe (comma-separated)")
+      ->delimiter(',');
   app.add_option("--https-hosts", https_hosts,
-                 "HTTPS hosts to probe (comma-separated)");
+                 "HTTPS hosts to probe (comma-separated)")
+      ->delimiter(',');
   app.add_option("--udp-hosts", udp_hosts,
-                 "UDP hosts for echo probe (comma-separated)");
+                 "UDP hosts for echo probe (comma-separated)")
+      ->delimiter(',');
   app.add_option("--timeout", timeout,
                  "Timeout in milliseconds (default: 5000)");
-  app.add_option(
-      "--output", output_file,
-      "Output JSON file (default: results.json). Use '-' for stdout");
-  app.add_flag("--compact", compact, "Write compact JSON (one line)");
+  CLI::Option *out_opt =
+      app.add_option("--output", output_file,
+                     "Also write JSON to the specified file path (pretty). Use "
+                     "'-' to target stdout (redundant).");
+  // Backward compatibility: accept --compact but ignore it; we always pretty
+  // print now
+  app.add_flag(
+      "--compact", compact_deprecated,
+      "DEPRECATED: Output is always pretty-printed; this flag is ignored");
 
   try {
     app.parse(argc, argv);
@@ -59,11 +67,23 @@ int main(int argc, char **argv) {
   // Run all probes
   auto results = agent.runProbes();
 
-  // Save results to file
-  agent.saveResults(results, output_file);
+  // Always print pretty JSON to stdout
+  agent.saveResults(results, "-", /*pretty_print=*/true);
 
-  std::cout << "Probing completed. Results saved to " << output_file
-            << std::endl;
-
+  // If user provided --output and it's not "-", also write that file (pretty)
+  if (out_opt->count() > 0) {
+    if (output_file != "-") {
+      agent.saveResults(results, output_file, /*pretty_print=*/true);
+      std::cerr
+          << "Probing completed. Printed pretty JSON to stdout and saved to "
+          << output_file << std::endl;
+    } else {
+      std::cerr << "Probing completed. Printed pretty JSON to stdout"
+                << std::endl;
+    }
+  } else {
+    std::cerr << "Probing completed. Printed pretty JSON to stdout"
+              << std::endl;
+  }
   return 0;
 }

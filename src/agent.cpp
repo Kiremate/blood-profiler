@@ -33,7 +33,7 @@ std::vector<ProbeResult> Agent::runProbes() {
     try {
       auto result = probe->execute();
       results.push_back(result);
-      std::cout << "Probe " << result.type << " to " << result.target << ":"
+      std::cerr << "Probe " << result.type << " to " << result.target << ":"
                 << result.port << " - "
                 << (result.success ? "SUCCESS" : "FAILED") << " ("
                 << result.response_time_ms << "ms)" << std::endl;
@@ -81,13 +81,21 @@ void Agent::saveResults(const std::vector<ProbeResult> &results,
 
   const int indent = pretty_print ? 2 : -1;
   if (filename == "-") {
-    std::cout << json_results.dump(indent) << std::endl;
+    // Replace invalid UTF-8 sequences to avoid exceptions with localized
+    // Windows error messages
+    std::cout << json_results.dump(indent, ' ', false,
+                                   nlohmann::json::error_handler_t::replace)
+              << std::endl;
     return;
   }
 
   std::ofstream file(filename);
   if (file.is_open()) {
-    file << json_results.dump(indent) << std::endl;
+    // Replace invalid UTF-8 sequences to avoid exceptions with localized
+    // Windows error messages
+    file << json_results.dump(indent, ' ', false,
+                              nlohmann::json::error_handler_t::replace)
+         << std::endl;
     file.close();
   } else {
     std::cerr << "Failed to open output file: " << filename << std::endl;
