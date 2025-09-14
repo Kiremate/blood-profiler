@@ -41,14 +41,14 @@ jobs:
 
     - name: Test run
       run: |
-        cd build/linux-default
+        cd build/linux-default/src
         ./agent --help
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: agent-ubuntu
-        path: build/linux-default/agent
+        path: build/linux-default/src/agent
 
   build-windows:
     runs-on: windows-latest
