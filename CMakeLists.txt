@@ -8,24 +8,30 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Prefer Boost CONFIG packages (vcpkg). Fall back to legacy FindBoost on platforms without them.
+# Prefer Boost CONFIG packages (vcpkg). Fall back to legacy FindBoost.
 if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
 endif()
-find_package(Boost 1.71 QUIET CONFIG COMPONENTS asio system)
+find_package(Boost 1.71 QUIET CONFIG COMPONENTS system)
 if(NOT Boost_FOUND)
   message(STATUS "Boost CONFIG not found; falling back to legacy FindBoost (module).")
   cmake_policy(PUSH)
   if(POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD) # allow module lookup
   endif()
-  find_package(Boost REQUIRED COMPONENTS system) # headers will be in Boost_INCLUDE_DIRS
+  find_package(Boost REQUIRED COMPONENTS system) # headers in Boost_INCLUDE_DIRS
   cmake_policy(POP)
 endif()
 
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
-# Hand control to subdirs; they will declare targets and link to these deps.
+# Install: default to a writable location inside the build dir to avoid Program Files
+include(GNUInstallDirs)
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefix" FORCE)
+endif()
+
+# Delegate to subdirs
 add_subdirectory(third_party)
 add_subdirectory(src)

@@ -14,19 +14,19 @@ target_include_directories(agent PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link third-party interface libs
 target_link_libraries(agent PRIVATE
-		CLI11
-		nlohmann_json
-		OpenSSL::SSL
-	OpenSSL::Crypto
-	Threads::Threads
+  CLI11
+  nlohmann_json
+  OpenSSL::SSL
+  OpenSSL::Crypto
+  Threads::Threads
 )
 
 # Link Boost (both CONFIG and legacy module cases)
 if(TARGET Boost::asio)
-	target_link_libraries(agent PRIVATE Boost::asio)
+  target_link_libraries(agent PRIVATE Boost::asio)
 endif()
 if(TARGET Boost::system)
-	target_link_libraries(agent PRIVATE Boost::system)
+  target_link_libraries(agent PRIVATE Boost::system)
 endif()
 
 # Ensure headers are visible in legacy FindBoost case
@@ -36,14 +36,16 @@ endif()
 
 # Windows socket libs
 if(WIN32)
-	target_link_libraries(agent PRIVATE ws2_32)
+  # Silence Boost.Asio _WIN32_WINNT notice and target Win10 APIs
+  target_compile_definitions(agent PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
+  target_link_libraries(agent PRIVATE ws2_32 crypt32)
 endif()
 
 # Warnings
 if(MSVC)
-	target_compile_options(agent PRIVATE /W4)
+  target_compile_options(agent PRIVATE /W4)
 else()
-	target_compile_options(agent PRIVATE -Wall -Wextra -Wpedantic)
+  target_compile_options(agent PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # Install
